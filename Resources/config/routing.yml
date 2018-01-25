@@ -1,0 +1,7 @@
+donfelice_csv_import_export_homepage:
+    path:     /
+    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:index }
+
+donfelice_csv_import_export_import:
+    path:     /csv/import/{step}/{fileName}/{contentType}/{location}
+    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:import, step: 0, fileName: '', contentType: '', location: ''  }

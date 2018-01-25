@@ -1,0 +1,8 @@
+services:
+#    donfelice_csv_import_export.example:
+#        class: Donfelice\CSVImportExportBundle\Example
+#        arguments: ["@service_id", "plain_value", "%parameter%"]
+  Donfelice\CSVImportExportBundle\EventListener\CSVAdminUIMenuListener:
+    public: true
+    tags:
+      - { name: kernel.event_subscriber }

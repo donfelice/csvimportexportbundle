@@ -1,0 +1,126 @@
+{% extends 'EzPlatformAdminUiBundle::layout.html.twig' %}
+
+{% trans_default_domain 'import' %}
+
+{% block bodyClass %}ez-dashboard{% endblock %}
+
+{% block content %}
+
+<div class="row align-items-stretch ez-main-row ez-dashboard-row">
+    {% block left_sidebar %}{% endblock left_sidebar %}
+    <div class="col-sm-12">
+        <div class="container">
+            <div class="card border-light my-4">
+                <div class="card-body" id="csv-card" data-step="{{step}}" data-file-name="{{file_name}}" data-content-type="{{content_type}}">
+
+                    <h3 class="mb-2">Import from CSV</h3>
+
+                    Step: {{step}}
+                    File name: {{file_name}}
+
+                    {#{dump(content_types)}#}
+
+                    <div class="card-deck">
+                        <div class="card" id="card-step-1">
+                            <div class="card-body">
+                                <h5 class="card-title">Select file to be uploaded</h5>
+                                <form method="POST" action="/admin/csv/import/1" enctype="multipart/form-data" >
+                                    <div class="form-group">
+                                        <input class="form-control-file" type="file" id="csvFile" name="csvFile"><br>
+                                        <button class="btn btn-lg btn-primary" type="submit" onclick="">
+                                            <svg class="ez-icon">
+                                                <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#upload"></use>
+                                            </svg>
+                                            Upload
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card" id="card-step-2">
+                            <div class="card-body">
+                                <h5 class="card-title">Select content type</h5>
+
+                                <div>
+                                    <select class="ez-field-selection form-control" id="select_content_type">
+                                        <option>Select</option>
+                                    {% for item in content_types %}
+                                        <option value="{{item.identifier}}">{{item.names['eng-GB']}}</option>
+                                    {% endfor %}
+                                    </select>
+                                    <br>
+                                    <a class="btn btn-lg btn-primary" href="javascript:gotoURL( '{{file_name}}' );">
+                                        <svg class="ez-icon">
+                                            <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#checkmark"></use>
+                                        </svg>
+                                        Confirm
+                                    </a>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="card csv-card" id="card-step-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Select location</h5>
+
+                                <button class="btn--udw-browse-csv btn btn-lg btn-primary" data-starting-location-id="1">
+                                    <svg class="ez-icon ez-icon-browse">
+                                        <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#browse"></use>
+                                    </svg>
+                                    Browse
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {% if file_content|length %}
+                      {#{dump(file_content)}#}
+
+                        <br>
+
+
+                        <div class="ez-table">
+                            <div class="table-container">
+                                <div class="ez-table-header">
+                                    <h5>Review data</h5>
+                                </div>
+                                <table class="table">
+                                {% for item in file_content %}
+                                    <tr>
+                                        {% for subitem in item %}
+                                            <td>{{subitem}}</td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                                </table>
+                            </div>
+                        </div>
+
+                    {% endif %}
+
+
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+
+{% stylesheets filter='cssrewrite'
+    'bundles/donfelicecsvimportexport/css/csvimportexport.css'
+%}
+    <link rel="stylesheet" href="{{ asset_url }}" />
+{% endstylesheets %}
+
+{% javascripts
+    'https://code.jquery.com/jquery-3.2.1.slim.min.js'
+    'bundles/donfelicecsvimportexport/js/csvimportexport.js'
+%}
+    <script src="{{ asset_url }}"></script>
+{% endjavascripts %}
+
+{% endblock %}

@@ -1,0 +1,32 @@
+{
+    "name": "donfelice/csvimportexportbundle",
+    "description": "The CSVImportExportBundle is an eZ Platform v2 bundle providing a basic import and export capabilities for the admin interface.",
+    "type": "ezplatform-bundle",
+    "keywords": [
+        "ezplatform",
+        "donfelice",
+        "csv",
+        "import",
+        "export"
+    ],
+    "homepage": "https://github.com/donfelice/csvimportexportbundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Donfelice",
+            "homepage": ""
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "ezsystems/ezpublish-kernel": "^7.0@dev",
+        "ezsystems/ezplatform-admin-ui": "^1.0@dev",
+        "ezsystems/ezplatform-admin-ui-modules": "^1.0@dev",
+        "ezsystems/ezplatform-admin-ui-assets": "^1.0@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Donfelice\\CSVImportExportBundle\\": "/"
+        }
+    }
+}

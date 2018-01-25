@@ -1,0 +1,21 @@
+.csv-card {
+    height: 250px;
+}
+
+button svg {
+    display: inline-block;
+    vertical-align: middle;
+    fill: currentColor;
+}
+
+a svg {
+    display: inline-block;
+    vertical-align: middle;
+    fill: currentColor;
+}
+
+.card-body .btn {
+    position: absolute;
+    bottom:10px;
+    width:85%;
+}
