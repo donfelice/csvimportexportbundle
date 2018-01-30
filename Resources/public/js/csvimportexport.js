@@ -1,14 +1,13 @@
-console.log( "ready!" );
-
 var step = $('.card-body').data('step');
 var file_name = $('.card-body').data('file-name');
 
 var card1 = document.getElementById( 'card-step-1' );
 var card2 = document.getElementById( 'card-step-2' );
 var card3 = document.getElementById( 'card-step-3' );
+var notification_csv_import_finished = document.getElementById( 'csv-import-finished' );
 
-card2.className += " invisible";
-card3.className += " invisible";
+//card2.className += " invisible";
+//card3.className += " invisible";
 
 if ( step == "1" ) {
     card2.classList.remove("invisible");
@@ -19,6 +18,14 @@ if ( step == "2" ) {
     card3.classList.remove("invisible");
 }
 
+if ( step == "3" ) {
+    card1.classList.add("invisible");
+    card2.classList.add("invisible");
+    card3.classList.add("invisible");
+    notification_csv_import_finished.classList.remove("invisible");
+
+}
+
 
 (function () {
     const btns = document.querySelectorAll('.btn--udw-browse-csv');
@@ -26,9 +33,6 @@ if ( step == "2" ) {
     const token = document.querySelector('meta[name="CSRF-Token"]').content;
     const siteaccess = document.querySelector('meta[name="SiteAccess"]').content;
     const closeUDW = () => udwContainer.innerHTML = '';
-
-    // Custom constants
-    //
 
     const onConfirm = (items) => {
         closeUDW();

@@ -19,3 +19,14 @@ a svg {
     bottom:10px;
     width:85%;
 }
+
+@media only screen and (min-width : 992px) {
+    .arrow-right {
+      width: 0;
+      height: 0;
+      margin-left: -15px;
+      border-top: 125px solid transparent;
+      border-bottom: 125px solid transparent;
+      border-left: 30px solid #efefef;
+    }
+}

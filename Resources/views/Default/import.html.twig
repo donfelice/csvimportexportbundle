@@ -2,28 +2,51 @@
 
 {% trans_default_domain 'import' %}
 
-{% block bodyClass %}ez-dashboard{% endblock %}
+{% block page_title %}
+    {% include '@EzPlatformAdminUi/parts/page_title.html.twig' with {
+        title: 'Import from CSV',
+        iconName: 'upload'
+    } %}
+{% endblock %}
+
+{% block left_sidebar %}{% endblock left_sidebar %}
 
 {% block content %}
+<section class="container mt-4 px-5">
 
-<div class="row align-items-stretch ez-main-row ez-dashboard-row">
-    {% block left_sidebar %}{% endblock left_sidebar %}
-    <div class="col-sm-12">
-        <div class="container">
-            <div class="card border-light my-4">
-                <div class="card-body" id="csv-card" data-step="{{step}}" data-file-name="{{file_name}}" data-content-type="{{content_type}}">
+        <div class="card border-light my-4">
+            <div class="card-body" id="csv-card" data-step="{{step}}" data-file-name="{{file_name}}" data-content-type="{{content_type}}">
 
-                    <h3 class="mb-2">Import from CSV</h3>
+                <h3 class="mb-2">Import from CSV</h3>
 
-                    Step: {{step}}
-                    File name: {{file_name}}
+                <p>Currently the columns of CSV have to be in the same order as the fields in the field type. At the moment only the field types ezstring, ezmail are supported.</p>
 
-                    {#{dump(content_types)}#}
+                <!--
+                Step: {{step}}
+                File name: {{file_name}}
+                -->
+
+                {#{dump(content_types)}#}
+
+                {% if step == "3" %}
+                    The following lines from the CSV where imported as {{content_type}}:
+
+                    <table class="table">
+                    {% for line in log_array %}
+                        <tr>
+                        {% for column in line %}
+                            <td>{{column}}</td>
+                        {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </table>
+
+                {% else %}
 
                     <div class="card-deck">
-                        <div class="card" id="card-step-1">
-                            <div class="card-body">
-                                <h5 class="card-title">Select file to be uploaded</h5>
+                        <div class="card">
+                            <div class="card-body" id="card-step-1">
+                                <h5 class="card-title">Select file</h5>
                                 <form method="POST" action="/admin/csv/import/1" enctype="multipart/form-data" >
                                     <div class="form-group">
                                         <input class="form-control-file" type="file" id="csvFile" name="csvFile"><br>
@@ -37,8 +60,9 @@
                                 </form>
                             </div>
                         </div>
-                        <div class="card" id="card-step-2">
-                            <div class="card-body">
+                        <div class="arrow-right my-2 my-lg-0"></div>
+                        <div class="card">
+                            <div class="card-body invisible" id="card-step-2">
                                 <h5 class="card-title">Select content type</h5>
 
                                 <div>
@@ -53,14 +77,15 @@
                                         <svg class="ez-icon">
                                             <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#checkmark"></use>
                                         </svg>
-                                        Confirm
+                                        Validate
                                     </a>
                                 </div>
 
                             </div>
                         </div>
-                        <div class="card csv-card" id="card-step-3">
-                            <div class="card-body">
+                        <div class="arrow-right"></div>
+                        <div class="card csv-card">
+                            <div class="card-body invisible" id="card-step-3">
                                 <h5 class="card-title">Select location</h5>
 
                                 <button class="btn--udw-browse-csv btn btn-lg btn-primary" data-starting-location-id="1">
@@ -74,12 +99,9 @@
                         </div>
                     </div>
 
-
                     {% if file_content|length %}
-                      {#{dump(file_content)}#}
 
                         <br>
-
 
                         <div class="ez-table">
                             <div class="table-container">
@@ -88,11 +110,16 @@
                                 </div>
                                 <table class="table">
                                 {% for item in file_content %}
+
+                                  {% set columns = item|length %}
+                                  {% set columns_index = columns - 1 %}
+
                                     <tr>
                                         {% for subitem in item %}
-                                            <td>{{subitem}}</td>
+                                            <td {% if item[columns_index] == 1 %}class="text-warning"{% endif %}>{{subitem}}</td>
                                         {% endfor %}
                                     </tr>
+
                                 {% endfor %}
                                 </table>
                             </div>
@@ -100,13 +127,22 @@
 
                     {% endif %}
 
+                {% endif %}
 
-
-                </div>
             </div>
-
-
         </div>
+
+</section>
+
+
+<div class="ez-notifications-container invisible" id="csv-import-finished">
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <svg class="ez-icon ez-icon--light ez-icon-small">
+                <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#circle-close"></use>
+            </svg>
+        </button>
+        CSV successfully imported!
     </div>
 </div>
 

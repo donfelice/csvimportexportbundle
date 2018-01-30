@@ -1,0 +1,49 @@
+{% extends 'EzPlatformAdminUiBundle::layout.html.twig' %}
+
+{% trans_default_domain 'import' %}
+
+{% block bodyClass %}ez-dashboard{% endblock %}
+
+{% block content %}
+
+<div class="row align-items-stretch ez-main-row ez-dashboard-row">
+    {% block left_sidebar %}{% endblock left_sidebar %}
+    <div class="col-sm-12">
+        <div class="container">
+            <div class="card border-light my-4">
+                <div class="card-body">
+
+                    <h3 class="mb-2">Clean location of all objets of chosen type</h3>
+
+                    <p>
+                    Content Type: {{content_type}}<br>
+                    Location ID: {{location_id}}
+                  </p>
+
+                    <a class="btn btn-lg btn-danger" href="/admin/csv/clean/{{content_type}}/{{location_id}}/yes">Delete all objects now</a>
+
+                    <br><br>
+                    <h3 class="text-danger">WARNING! You are about to delete these objects:</h3>
+
+                    {#{dump(location_children)}#}
+
+                    <table class="table">
+                    {% for row in location_children.locations %}
+                    {#{dump(row)}#}
+                        {% if row.contentInfo.contentTypeId == content_type %}
+                        <tr>
+                            <td>{{row.contentInfo.contentTypeId}}</td><td>{{row.contentInfo.id}}</td><td>{{row.contentInfo.name}}</td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

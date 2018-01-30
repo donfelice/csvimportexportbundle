@@ -5,13 +5,20 @@ namespace Donfelice\CSVImportExportBundle\Controller;
 use eZ\Bundle\EzPublishCoreBundle\Controller;
 use eZ\Publish\API\Repository\Repository;
 use eZ\Publish\API\Repository\ContentTypeService;
-//use eZ\Publish\API\Repository\ContentService;
+use eZ\Publish\API\Repository\FieldTypeService;
+use eZ\Publish\API\Repository\SearchService;
 use eZ\Publish\API\Repository\Values\ContentType\ContentType;
 use eZ\Publish\API\Repository\Values\ContentType\ContentTypeGroup;
 use eZ\Publish\API\Repository\Values\Content;
+use eZ\Publish\API\Repository\Values\Content\Query;
+use eZ\Publish\API\Repository\Values\Content\Query\Criterion\LogicalAnd;
+use eZ\Publish\API\Repository\Values\Content\Query\Criterion\ContentTypeIdentifier;
+use eZ\Publish\API\Repository\Values\Content\Query\Criterion\Visibility;
+
 //use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 
 class DefaultController extends Controller
@@ -26,12 +33,12 @@ class DefaultController extends Controller
     {
         //$clientid = $this->getParameter('analytics.clientid');
 
-
-        //echo $step . $id .  $content_type . $location;
-
         $name = ""; // file name to be use for reference in step 3
         //$contentType
-        $file_content_as_array = array();
+        $fileContentArray = array();
+        $logArray = array();
+
+        $language = "eng-GB"; // TODO make dynamic with fallback
 
         $contentTypeGroupId = '1'; //content
 
@@ -39,7 +46,8 @@ class DefaultController extends Controller
         $locationService = $repository->getLocationService();
         $contentService = $repository->getContentService();
         $contentTypeService = $repository->getContentTypeService();
-
+        $searchService = $repository->getSearchService();
+        $fieldTypeService = $repository->getFieldTypeService();
 
         $contentTypeGroup = $contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
         $contentTypes = $contentTypeService->loadContentTypes( $contentTypeGroup );
@@ -49,73 +57,58 @@ class DefaultController extends Controller
 
 
         // Step 1
-        if ( $request->isMethod('POST') ) {
+        if ( $request->isMethod('POST') && $step == "1" ) {
 
-            //var_dump($request);
+            $file = $this->createFile( $request );
 
-            $dir = $this->get('kernel')->getRootDir() . '/../web/uploads/csv/';
-            $name = uniqid() . '.csv';
-            $fileName = $name;
+            $filePath = $file[0];
+            $fileName = $file[1];
 
-            foreach ( $request->files as $uploadedFile ) {
-                $uploadedFile->move($dir, $name);
-            }
-
-            $file = $this->get('kernel')->getRootDir() . "/../web/uploads/csv/" . $name;
-
-            //var_dump($file);
-
-            //$file_content_as_array = array_map('str_getcsv', file($file));
-            $csv_file = fopen($file,"r");
-            while (($data = fgetcsv($csv_file, 0, ";")) !== FALSE) {
-                //var_dump($data);
-                //echo "<br>";
-                $tmp = array();
-                foreach ( $data as $item ) {
-
-                    //$item = iconv( "ISO-8859-1" , "UTF-8", $item );
-                    if( !mb_detect_encoding( $item, 'utf-8', true ) ){
-                        $item = utf8_encode( $item );
-                    }
-                    $tmp[] = $item;
-                }
-                $file_content_as_array[] = $tmp;
-            }
-
-            //$file_content_as_array = fgetcsv($csv_file, 0, ";");
-            //var_dump($file_content_as_array);
-
-
+            $fileContentArray = $this->file2Array( $filePath );
 
         }
 
 
         // Step 2
-        if ( $fileName != "" ) {
+        if ( $fileName != "" && $step == 2 ) {
 
-            $file = $this->get('kernel')->getRootDir() . "/../web/uploads/csv/" . $fileName;
+            // get all existing object of selected content type
+            $allExisting = $this->allExisting( $contentType, $language );
 
-            //var_dump($file);
+            // Get uploaded CSV file
+            $filePath = $this->get('kernel')->getRootDir() . "/../web/uploads/csv/" . $fileName;
 
-            //$file_content_as_array = array_map('str_getcsv', file($file));
-            $csv_file = fopen( $file, "r" );
-            while ( ( $data = fgetcsv( $csv_file, 0, ";" ) ) !== FALSE) {
-                //var_dump($data);
-                //echo "<br>";
-                $tmp = array();
-                foreach ( $data as $item ) {
+            $fileContentArray = $this->file2Array( $filePath );
+            $fileContentTmpArray = array();
 
-                    //$item = iconv( "ISO-8859-1" , "UTF-8", $item );
-                    if( !mb_detect_encoding( $item, 'utf-8', true ) ){
-                        $item = utf8_encode( $item );
+            foreach ( $fileContentArray as $tmp ) {
+
+                //var_dump($allExisting);
+                $tmp_string = implode("--", $tmp);
+
+                if ( $allExisting != NULL ) {
+                    //echo $tmp_string;
+                    if ( in_array( $tmp_string, $allExisting ) ) {
+                        // Allready exists
+                        //echo "yes" . "<br>";
+                        $tmp[] = "1";
+                    } else {
+                        // New object
+                        //echo "no" . "<br>";
+                        $tmp[] = "0";
                     }
-                    $tmp[] = $item;
+                } else {
+                    //echo "allExisiting is NULL: " . $tmp_string;
+                    $tmp[] = "0";
                 }
-                $file_content_as_array[] = $tmp;
+
+                $fileContentTmpArray[] = $tmp;
+
             }
 
-        }
+            $fileContentArray = $fileContentTmpArray;
 
+        }
 
         // Step 3
         if ( $step == "3" ) {
@@ -123,6 +116,8 @@ class DefaultController extends Controller
             $userService = $repository->getUserService();
             $user = $userService->loadUserByCredentials( 'admin', 'publish' ); // TODO Get from yml!
             $repository->setCurrentUser( $user );
+
+            //$this->notificationHandler = new NotificationHandlerInterface;
 
             $targetContentType = $contentTypeService->loadContentTypeByIdentifier( $contentType );
 
@@ -147,18 +142,6 @@ class DefaultController extends Controller
                   $data = array_map( "utf8_encode", $data ); //added
                   $num = count( $data ); // column count
 
-                  //echo $num;
-
-                  //$geo_id = $data[0];
-                  //$geo_name = $data[1];
-                  //$geo_population = $data[4];
-                  //$geo_area = $data[5];
-                  //$geo_logo = $data[6];
-
-                  //echo $geo_id . " > " . $geo_name. " > " . $geo_population . " > " . $geo_area;
-
-
-
                   try {
 
                       $contentCreateStruct = $contentService->newContentCreateStruct( $targetContentType, 'eng-GB' );
@@ -169,13 +152,16 @@ class DefaultController extends Controller
 
                       $locationCreateStruct = $locationService->newLocationCreateStruct( $location );
 
-                      //var_dump($contentCreateStruct);
-                      //var_dump($locationCreateStruct);
-
                       $draft = $contentService->createContent( $contentCreateStruct, array( $locationCreateStruct ) );
                       $content = $contentService->publishVersion( $draft->versionInfo );
-                      //print_r( $content );
 
+                      //var_dump($content->versionInfo->contentInfo->publishedDate);
+                      $id = $content->versionInfo->contentInfo->id;
+                      $name = $content->versionInfo->contentInfo->name;
+                      $publishedDate = $content->versionInfo->contentInfo->publishedDate;
+                      $publishedDateString = $publishedDate->format('Y-m-d H:i:s');
+
+                      $logArray[] = array( $id, $name, $publishedDateString );
 
                     }
                     // Content type or location not found
@@ -198,17 +184,163 @@ class DefaultController extends Controller
 
             }
 
+            $this->addFlash("success", "CSV import was a success. Now get yourself a beer!");
+
         }
 
         return $this->render('DonfeliceCSVImportExportBundle:Default:import.html.twig',
             array(
-                'file_content' => $file_content_as_array,
+                'file_content' => $fileContentArray,
                 'step' => $step,
                 'content_types' => $contentTypes,
                 'content_type' => $contentType,
-                'file_name' => $fileName
+                'file_name' => $fileName,
+                'log_array' => $logArray
             )
         );
+    }
+
+
+    public function cleanAction( Request $request, $contentType, $locationId, $confirm )
+    {
+
+        $contentTypeGroupId = "1"; // Content
+
+        $repository = $this->getRepository();
+        $locationService = $repository->getLocationService();
+        $contentService = $repository->getContentService();
+        $contentTypeService = $repository->getContentTypeService();
+        //$searchService = $repository->getSearchService();
+        //$fieldTypeService = $repository->getFieldTypeService();
+
+        $contentTypeGroup = $contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
+        $contentTypes = $contentTypeService->loadContentTypes( $contentTypeGroup );
+
+        $location = $locationService->loadLocation( $locationId );
+        $locationChildren = $locationService->loadLocationChildren( $location, 0, 1000 );
+
+        // Delete
+        if ( $confirm == "yes" ) {
+
+            //echo $confirm;
+            //var_dump($locationChildren.locations);
+            foreach ( $locationChildren->locations as $item ) {
+
+                //var_dump($item->contentInfo);
+                $contentService->deleteContent($item->contentInfo);
+
+            }
+        }
+
+
+        return $this->render('DonfeliceCSVImportExportBundle:Default:clean.html.twig',
+            array(
+                'content_type' => $contentType,
+                'location_id' => $locationId,
+                'location_children' => $locationChildren
+            )
+        );
+
+    }
+
+
+    public function createFile( $request ) {
+
+        $dir = $this->get('kernel')->getRootDir() . '/../web/uploads/csv/';
+        $name = uniqid() . '.csv';
+        $fileName = $name;
+
+        foreach ( $request->files as $uploadedFile ) {
+            $uploadedFile->move( $dir, $name );
+        }
+
+        $filePath = $this->get('kernel')->getRootDir() . "/../web/uploads/csv/" . $name;
+
+        return array( $filePath, $fileName );
+
+    }
+
+
+    public function file2Array( $filePath ) {
+
+        $csv_file = fopen( $filePath,"r" );
+
+        while ( ( $data = fgetcsv( $csv_file, 0, ";" ) ) !== FALSE ) {
+
+            $tmp = array();
+            foreach ( $data as $item ) {
+
+                //$item = iconv( "ISO-8859-1" , "UTF-8", $item );
+                if( !mb_detect_encoding( $item, 'utf-8', true ) ){
+                    $item = utf8_encode( $item );
+                }
+                $tmp[] = $item;
+            }
+            $fileContentArray[] = $tmp;
+
+        }
+
+        return $fileContentArray;
+
+    }
+
+
+    public function allExisting( $contentType, $language ) {
+
+        $repository = $this->getRepository();
+        $searchService = $repository->getSearchService();
+        $contentService = $repository->getContentService();
+        $contentTypeService = $repository->getContentTypeService();
+        $fieldTypeService = $repository->getFieldTypeService();
+
+        // get all existing object of selected content type
+        $query = new Query(
+            array(
+                'filter' => new LogicalAnd(
+                    array(
+                        //new LocationId( $locationBId ),
+                        new ContentTypeIdentifier( $contentType ),
+                        new Visibility( Visibility::VISIBLE ),
+                    )
+                )
+            )
+        );
+
+        $query->limit = 1000;
+
+        $searchResult = $searchService->findContent( $query );
+        //var_dump($searchResult);
+        $allExisting = array();
+
+        $contentTypeObject = $contentTypeService->loadContentTypeByIdentifier( $contentType );
+
+        foreach ( $searchResult->searchHits as $searchHit ){
+
+            $tmp = array();
+            $content = $contentService->loadContent( $searchHit->valueObject->contentInfo->id, array( $language ));
+
+            foreach( $contentTypeObject->fieldDefinitions as $fieldDefinition ){
+
+                $fieldType = $fieldTypeService->getFieldType( $fieldDefinition->fieldTypeIdentifier );
+                $field = $content->getFieldValue( $fieldDefinition->identifier, $language );
+                //echo $fieldDefinition->fieldTypeIdentifier;
+                //var_dump($fieldType);
+                //var_dump($field);
+
+                if ( $fieldDefinition->fieldTypeIdentifier == 'ezstring' ){
+                    $tmp[] = $field->text;
+                }
+                elseif ( $fieldDefinition->fieldTypeIdentifier == 'ezemail' ){
+                    $tmp[] = $field->email;
+                    //var_dump($field);
+                }
+
+            }
+            $allExisting[] = implode("--", $tmp);
+            //$allExisting[] = $tmp;
+
+        }
+
     }
 
 }
