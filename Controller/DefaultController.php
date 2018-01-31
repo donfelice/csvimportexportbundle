@@ -19,6 +19,9 @@ use eZ\Publish\API\Repository\Values\Content\Query\Criterion\Visibility;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+//use Symfony\Component\Serializer\Serializer;
+//use Symfony\Component\Serializer\Encoder\CsvEncoder;
+//use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 
 
 class DefaultController extends Controller
@@ -29,13 +32,14 @@ class DefaultController extends Controller
         return $this->render('DonfeliceCSVImportExportBundle:Default:index.html.twig');
     }
 
-    public function importAction( Request $request, $step, $fileName, $contentType, $location )
+    public function importAction( Request $request, $step, $fileName, $contentType, $locationId )
     {
         //$clientid = $this->getParameter('analytics.clientid');
 
         $name = ""; // file name to be use for reference in step 3
         //$contentType
         $fileContentArray = array();
+        $addContentResultArray = array();
         $logArray = array();
 
         $language = "eng-GB"; // TODO make dynamic with fallback
@@ -73,7 +77,7 @@ class DefaultController extends Controller
         if ( $fileName != "" && $step == 2 ) {
 
             // get all existing object of selected content type
-            $allExisting = $this->allExisting( $contentType, $language );
+            $allExisting = $this->allExisting( $contentType, $language )[0];
 
             // Get uploaded CSV file
             $filePath = $this->get('kernel')->getRootDir() . "/../web/uploads/csv/" . $fileName;
@@ -87,18 +91,12 @@ class DefaultController extends Controller
                 $tmp_string = implode("--", $tmp);
 
                 if ( $allExisting != NULL ) {
-                    //echo $tmp_string;
                     if ( in_array( $tmp_string, $allExisting ) ) {
-                        // Allready exists
-                        //echo "yes" . "<br>";
                         $tmp[] = "1";
                     } else {
-                        // New object
-                        //echo "no" . "<br>";
                         $tmp[] = "0";
                     }
                 } else {
-                    //echo "allExisiting is NULL: " . $tmp_string;
                     $tmp[] = "0";
                 }
 
@@ -113,9 +111,31 @@ class DefaultController extends Controller
         // Step 3
         if ( $step == "3" ) {
 
+            // get all existing object of selected content type
+            //echo $contentType . $language;
+            $allExisitingArray = $this->allExisting( $contentType, $language );
+            $allExistingObjectStrings = $allExisitingArray[0];
+            $allExisitingLocations = $allExisitingArray[1];
+            $allExisitingContentIds = $allExisitingArray[2];
+            $allExistingObjects = $allExisitingArray[3];
+
+            //var_dump($allExisitingContentIds);
+
+            $numberAlreadyInLocation = 0;
+            $numberAddedToLocation = 0;
+
             $userService = $repository->getUserService();
             $user = $userService->loadUserByCredentials( 'admin', 'publish' ); // TODO Get from yml!
             $repository->setCurrentUser( $user );
+
+            //$serializer = new Serializer( [new ObjectNormalizer()], [ new CsvEncoder() ] );
+
+            // instantiation, when using it inside the Symfony framework
+            //$serializer = $container->get('serializer');
+
+            // encoding contents in CSV format
+            //$serializer->encode($data, 'csv');
+
 
             //$this->notificationHandler = new NotificationHandlerInterface;
 
@@ -124,6 +144,7 @@ class DefaultController extends Controller
             //var_dump($targetContentType->fieldDefinitions);
 
             $fieldIdentifiers = array();
+
 
             foreach ( $targetContentType->fieldDefinitions as $fieldDefinition ) {
                 //var_dump($fieldDefinition);
@@ -135,53 +156,66 @@ class DefaultController extends Controller
 
             //echo $csvurl;
 
+            /*
+            $csvData = $serializer->decode( file_get_contents( $csvurl ), 'csv' );
+            $this->utf8_encode_deep( $csvData );
+            var_dump($csvData);
+            */
+
             if ( $file = fopen( $csvurl , 'r' ) ) {
 
+                // Loop file line by line
                 while ( $data = fgetcsv ( $file, 1000, ";" ) ) {
 
-                  $data = array_map( "utf8_encode", $data ); //added
-                  $num = count( $data ); // column count
+                    $data = array_map( "utf8_encode", $data ); //added
+                    $num = count( $data ); // column count
 
-                  try {
+                    //foreach ( $data as $tmp ) {
 
-                      $contentCreateStruct = $contentService->newContentCreateStruct( $targetContentType, 'eng-GB' );
+                    $tmp_string = trim( implode( "--", $data ) );
+                    //echo $tmp_string . "<br><br>";
+                    //var_dump($allExistingObjectStrings);
+                    //echo "<br><br>";
 
-                      foreach ( $data as $key=>$value ) {
-                          $contentCreateStruct->setField( $fieldIdentifiers[ $key ], $value );
-                      }
+                    if ( $allExistingObjectStrings != NULL ) {
 
-                      $locationCreateStruct = $locationService->newLocationCreateStruct( $location );
+                        $key = array_search( $tmp_string, $allExistingObjectStrings );
 
-                      $draft = $contentService->createContent( $contentCreateStruct, array( $locationCreateStruct ) );
-                      $content = $contentService->publishVersion( $draft->versionInfo );
+                        if ( $key > -1 ) {
 
-                      //var_dump($content->versionInfo->contentInfo->publishedDate);
-                      $id = $content->versionInfo->contentInfo->id;
-                      $name = $content->versionInfo->contentInfo->name;
-                      $publishedDate = $content->versionInfo->contentInfo->publishedDate;
-                      $publishedDateString = $publishedDate->format('Y-m-d H:i:s');
+                            // If exists, add new location if not already there
+                            if ( in_array( $locationId, $allExisitingLocations ) ){
+                                // Already in location, do nothing
+                                $numberAlreadyInLocation++;
 
-                      $logArray[] = array( $id, $name, $publishedDateString );
-
-                    }
-                    // Content type or location not found
-                    catch ( \eZ\Publish\API\Repository\Exceptions\NotFoundException $e ) {
-                        echo $e->getMessage();
-                    }
-                    /*
-                    // Invalid field value
-                    catch ( \eZ\Publish\API\Repository\Exceptions\ContentFieldValidationException $e ) {
-                        echo $e->getMessage();
-                        // Required field missing or empty
-                        catch ( \eZ\Publish\API\Repository\Exceptions\ContentValidationException $e ) {
-                            echo $e->getMessage();
+                            } else {
+                                // Object exists, but not in location. Add to this location
+                                $numberAddedToLocation++;
+                                $addLocationResult = $this->addLocation( $allExistingObjects[ $key ], $locationId, $allExisitingContentIds[ $key ] );
+                            }
+                        } else {
+                            // If new, simply publish new object
+                            $addContentResult = $this->addContent(  $data, $targetContentType, $fieldIdentifiers, $locationId  );
+                            $addContentResultArray[] = $addContentResult;
                         }
 
-                      }
-                    }*/
+                    } else {
+                        // No objects of this type exists. Publish new object
+                        $addContentResult = $this->addContent(  $data, $targetContentType, $fieldIdentifiers, $locationId  );
+                        $addContentResultArray[] = $addContentResult;
+                    }
 
                 }
 
+            }
+
+            // Flash bags
+            if ( $numberAlreadyInLocation > 0 ) {
+                $this->addFlash("warning", $numberAlreadyInLocation . " object(s) are already in this location and where not imported.");
+            }
+
+            if ( $numberAddedToLocation > 0 ) {
+                $this->addFlash("warning", $numberAddedToLocation . " object(s) added to new location.");
             }
 
             $this->addFlash("success", "CSV import was a success. Now get yourself a beer!");
@@ -195,7 +229,7 @@ class DefaultController extends Controller
                 'content_types' => $contentTypes,
                 'content_type' => $contentType,
                 'file_name' => $fileName,
-                'log_array' => $logArray
+                'content_added' => $addContentResultArray
             )
         );
     }
@@ -221,13 +255,10 @@ class DefaultController extends Controller
 
         // Delete
         if ( $confirm == "yes" ) {
-
-            //echo $confirm;
-            //var_dump($locationChildren.locations);
             foreach ( $locationChildren->locations as $item ) {
 
                 //var_dump($item->contentInfo);
-                $contentService->deleteContent($item->contentInfo);
+                $contentService->deleteContent( $item->contentInfo );
 
             }
         }
@@ -242,6 +273,26 @@ class DefaultController extends Controller
         );
 
     }
+
+    /*
+    public function utf8_encode_deep(&$input) {
+        if (is_string($input)) {
+            $input = utf8_encode($input);
+        } else if (is_array($input)) {
+            foreach ($input as &$value) {
+                $this->utf8_encode_deep($value);
+            }
+
+            unset($value);
+        } else if (is_object($input)) {
+            $vars = array_keys(get_object_vars($input));
+
+            foreach ($vars as $var) {
+                $this->utf8_encode_deep($input->$var);
+            }
+        }
+    }
+    */
 
 
     public function createFile( $request ) {
@@ -287,10 +338,16 @@ class DefaultController extends Controller
 
     public function allExisting( $contentType, $language ) {
 
+        $allExistingObjects = array();
+        $allExistingObjectStrings = array();
+        $allExisitingLocations = array();
+        $allExisitingContentIds = array();
+
         $repository = $this->getRepository();
         $searchService = $repository->getSearchService();
         $contentService = $repository->getContentService();
         $contentTypeService = $repository->getContentTypeService();
+        $locationService = $repository->getLocationService();
         $fieldTypeService = $repository->getFieldTypeService();
 
         // get all existing object of selected content type
@@ -310,11 +367,20 @@ class DefaultController extends Controller
 
         $searchResult = $searchService->findContent( $query );
         //var_dump($searchResult);
-        $allExisting = array();
 
         $contentTypeObject = $contentTypeService->loadContentTypeByIdentifier( $contentType );
 
         foreach ( $searchResult->searchHits as $searchHit ){
+
+            $allExistingObjects[] = $searchHit->valueObject;
+            $allExisitingContentIds[] = $searchHit->valueObject->contentInfo->id;
+
+            $allLocations = $locationService->loadLocations( $searchHit->valueObject->contentInfo );
+            foreach ( $allLocations as $item ) {
+                $allExisitingLocations[] = $item->parentLocationId;
+
+            }
+            //var_dump($allLocations);
 
             $tmp = array();
             $content = $contentService->loadContent( $searchHit->valueObject->contentInfo->id, array( $language ));
@@ -336,11 +402,95 @@ class DefaultController extends Controller
                 }
 
             }
-            $allExisting[] = implode("--", $tmp);
-            //$allExisting[] = $tmp;
+            $allExistingObjectStrings[] = trim( implode( "--", $tmp ) );
+            //$allExistingObjects[] = $tmp;
 
         }
 
+        return array( $allExistingObjectStrings, $allExisitingLocations, $allExisitingContentIds, $allExistingObjects );
+
+    }
+
+    public function addLocation( $contentInfo, $locationId, $contentId ) {
+
+        $repository = $this->getRepository();
+        $contentService = $repository->getContentService();
+        $locationService = $repository->getLocationService();
+
+        try
+        {
+            $locationCreateStruct = $locationService->newLocationCreateStruct( $locationId );
+            $contentInfo = $contentService->loadContentInfo( $contentId );
+            $newLocation = $locationService->createLocation( $contentInfo, $locationCreateStruct );
+            //print_r( $newLocation );
+        }
+        // Content or location not found
+        catch ( \eZ\Publish\API\Repository\Exceptions\NotFoundException $e )
+        {
+            $output->writeln( $e->getMessage() );
+        }
+        // Permission denied
+        catch ( \eZ\Publish\API\Repository\Exceptions\UnauthorizedException $e )
+        {
+            $output->writeln( $e->getMessage() );
+        }
+    }
+
+
+    public function addContent( $data, $targetContentType, $fieldIdentifiers, $locationId ){
+
+        $repository = $this->getRepository();
+        $searchService = $repository->getSearchService();
+        $contentService = $repository->getContentService();
+        $contentTypeService = $repository->getContentTypeService();
+        $locationService = $repository->getLocationService();
+        $fieldTypeService = $repository->getFieldTypeService();
+
+        $userService = $repository->getUserService();
+        $user = $userService->loadUserByCredentials( 'admin', 'publish' ); // TODO Get from yml!
+        $repository->setCurrentUser( $user );
+
+
+        try {
+
+            $contentCreateStruct = $contentService->newContentCreateStruct( $targetContentType, 'eng-GB' );
+
+            // Loop row and map columns
+            foreach ( $data as $key=>$value ) {
+                $contentCreateStruct->setField( $fieldIdentifiers[ $key ], $value );
+            }
+
+            $locationCreateStruct = $locationService->newLocationCreateStruct( $locationId );
+
+            $draft = $contentService->createContent( $contentCreateStruct, array( $locationCreateStruct ) );
+            $content = $contentService->publishVersion( $draft->versionInfo );
+
+            // Make string for log
+            $id = $content->versionInfo->contentInfo->id;
+            $name = $content->versionInfo->contentInfo->name;
+            $publishedDate = $content->versionInfo->contentInfo->publishedDate;
+            $publishedDateString = $publishedDate->format('Y-m-d H:i:s');
+
+            $addContentResult[] = array( $id, $name, $publishedDateString );
+
+        }
+        // Content type or location not found
+        catch ( \eZ\Publish\API\Repository\Exceptions\NotFoundException $e ) {
+            echo $e->getMessage();
+        }
+        /*
+        // Invalid field value
+        catch ( \eZ\Publish\API\Repository\Exceptions\ContentFieldValidationException $e ) {
+            echo $e->getMessage();
+            // Required field missing or empty
+            catch ( \eZ\Publish\API\Repository\Exceptions\ContentValidationException $e ) {
+                echo $e->getMessage();
+            }
+
+        }
+          }*/
+
+        return $addContentResult;
     }
 
 }

@@ -3,8 +3,8 @@ donfelice_csv_import_export_homepage:
     defaults: { _controller: DonfeliceCSVImportExportBundle:Default:index }
 
 donfelice_csv_import_export_import:
-    path:     /csv/import/{step}/{fileName}/{contentType}/{location}
-    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:import, step: 0, fileName: '', contentType: '', location: ''  }
+    path:     /csv/import/{step}/{fileName}/{contentType}/{locationId}
+    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:import, step: 0, fileName: '', contentType: '', locationId: ''  }
 
 donfelice_csv_import_export_delete:
     path:     /csv/clean/{contentType}/{locationId}/{confirm}

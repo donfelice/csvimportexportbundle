@@ -5,7 +5,7 @@
 {% block page_title %}
     {% include '@EzPlatformAdminUi/parts/page_title.html.twig' with {
         title: 'Import from CSV',
-        iconName: 'upload'
+        iconName: 'circle-caret-up'
     } %}
 {% endblock %}
 
@@ -21,25 +21,31 @@
 
                 <p>Currently the columns of CSV have to be in the same order as the fields in the field type. At the moment only the field types ezstring, ezmail are supported.</p>
 
-                <!--
-                Step: {{step}}
-                File name: {{file_name}}
-                -->
-
-                {#{dump(content_types)}#}
-
                 {% if step == "3" %}
                     The following lines from the CSV where imported as {{content_type}}:
 
-                    <table class="table">
-                    {% for line in log_array %}
-                        <tr>
-                        {% for column in line %}
-                            <td>{{column}}</td>
-                        {% endfor %}
-                        </tr>
-                    {% endfor %}
-                    </table>
+                    <div class="ez-table">
+                        <div class="table-container">
+                            <div class="ez-table-header">
+                                <h5>Imported data</h5>
+                            </div>
+                            <table class="table">
+                                <tr>
+                                    <th>ContentId</th><th>Content Name</th><th>Published</th>
+                                </tr>
+                                {#{dump(content_added)}#}
+
+                                {% for line in content_added %}
+                                <tr>
+                                    {% for column in line[0] %}
+                                    <td>{{column}}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+
+                            </table>
+                        </div>
+                    </div>
 
                 {% else %}
 
@@ -87,6 +93,7 @@
                         <div class="card csv-card">
                             <div class="card-body invisible" id="card-step-3">
                                 <h5 class="card-title">Select location</h5>
+                                <p>Warning: import will start once location is selected</p>
 
                                 <button class="btn--udw-browse-csv btn btn-lg btn-primary" data-starting-location-id="1">
                                     <svg class="ez-icon ez-icon-browse">
@@ -113,10 +120,14 @@
 
                                   {% set columns = item|length %}
                                   {% set columns_index = columns - 1 %}
+                                  {% set i = 0 %}
 
                                     <tr>
                                         {% for subitem in item %}
-                                            <td {% if item[columns_index] == 1 %}class="text-warning"{% endif %}>{{subitem}}</td>
+                                            {% if columns_index != i %}
+                                            <td {% if item[columns_index] == 1 %}class="text-danger"{% endif %}>{{subitem}}</td>
+                                            {% set i = i + 1 %}
+                                            {% endif %}
                                         {% endfor %}
                                     </tr>
 
@@ -133,18 +144,6 @@
         </div>
 
 </section>
-
-
-<div class="ez-notifications-container invisible" id="csv-import-finished">
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <svg class="ez-icon ez-icon--light ez-icon-small">
-                <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#circle-close"></use>
-            </svg>
-        </button>
-        CSV successfully imported!
-    </div>
-</div>
 
 {% stylesheets filter='cssrewrite'
     'bundles/donfelicecsvimportexport/css/csvimportexport.css'
