@@ -19,8 +19,6 @@
 
                 <h3 class="mb-2">Import from CSV</h3>
 
-                <p>Currently the columns of CSV have to be in the same order as the fields in the field type. At the moment only the field types ezstring, ezmail are supported.</p>
-
                 {% if step == "3" %}
                     The following lines from the CSV where imported as {{content_type}}:
 
@@ -33,7 +31,6 @@
                                 <tr>
                                     <th>ContentId</th><th>Content Name</th><th>Published</th>
                                 </tr>
-                                {#{dump(content_added)}#}
 
                                 {% for line in content_added %}
                                 <tr>
@@ -48,6 +45,19 @@
                     </div>
 
                 {% else %}
+
+                    <p>Currently the columns of CSV have to be in the same order as the fields in the field type. At the moment only the field types ezstring, ezmail are supported.</p>
+
+                    {#{dump(available_languages)}#}
+
+                    <h5>Choose language objects will be created in</h5>
+                    <select class="form-control" id="select_language">
+                    {% for language in available_languages %}
+                        <option value="{{language}}">{{language}}</option>
+                    {% endfor %}
+                    </select>
+
+                    <br>
 
                     <div class="card-deck">
                         <div class="card">
@@ -79,7 +89,7 @@
                                     {% endfor %}
                                     </select>
                                     <br>
-                                    <a class="btn btn-lg btn-primary" href="javascript:gotoURL( '{{file_name}}' );">
+                                    <a class="btn btn-lg btn-primary" id="btn_content_type" href="javascript:gotoURL( '{{file_name}}' );">
                                         <svg class="ez-icon">
                                             <use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#checkmark"></use>
                                         </svg>

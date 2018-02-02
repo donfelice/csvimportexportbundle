@@ -1,11 +1,11 @@
-donfelice_csv_import_export_homepage:
-    path:     /
-    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:index }
-
 donfelice_csv_import_export_import:
-    path:     /csv/import/{step}/{fileName}/{contentType}/{locationId}
-    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:import, step: 0, fileName: '', contentType: '', locationId: ''  }
+    path:     /csv/import/{step}/{fileName}/{contentType}/{locationId}/{language}
+    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:import, step: 0, fileName: '', contentType: '', locationId: '', language: 'eng-GB'  }
 
 donfelice_csv_import_export_delete:
     path:     /csv/clean/{contentType}/{locationId}/{confirm}
     defaults: { _controller: DonfeliceCSVImportExportBundle:Default:clean, contentType: '', locationId: '', confirm: 'no'  }
+
+donfelice_csv_import_export_export:
+    path:     /csv/export/{step}/{locationId}/{language}
+    defaults: { _controller: DonfeliceCSVImportExportBundle:Default:export, step: 0, locationId: '', language: 'eng-GB'  }

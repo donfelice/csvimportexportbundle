@@ -4,9 +4,14 @@ namespace Donfelice\CSVImportExportBundle\Controller;
 
 use eZ\Bundle\EzPublishCoreBundle\Controller;
 use eZ\Publish\API\Repository\Repository;
+
 use eZ\Publish\API\Repository\ContentTypeService;
 use eZ\Publish\API\Repository\FieldTypeService;
 use eZ\Publish\API\Repository\SearchService;
+use eZ\Publish\API\Repository\LocationService;
+use eZ\Publish\API\Repository\ContentService;
+use \eZ\Publish\API\Repository\UserService;
+//use eZ\Publish\Core\Helper\TranslationHelper;
 use eZ\Publish\API\Repository\Values\ContentType\ContentType;
 use eZ\Publish\API\Repository\Values\ContentType\ContentTypeGroup;
 use eZ\Publish\API\Repository\Values\Content;
@@ -27,38 +32,78 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 class DefaultController extends Controller
 {
 
-    public function indexAction()
+    /*
+    protected $fileContentArray = array();
+    protected $addContentResultArray = array();
+    protected $logArray = array();
+    */
+
+
+    private $contentService;
+    private $contentTypeService;
+    private $fieldTypeService;
+    private $searchService;
+    private $locationService;
+    private $userService;
+
+    /**
+     * DefaultController constructor.
+     *
+     * @param \eZ\Publish\API\Repository\ContentService $contentService
+     * @param \eZ\Publish\API\Repository\ContentTypeService $contentTypeService
+     * @param \eZ\Publish\API\Repository\FieldTypeService $fieldTypeService
+     * @param \eZ\Publish\API\Repository\SearchService $searchService
+     * @param \eZ\Publish\API\Repository\LocationService $locationService
+     * @param \eZ\Publish\API\Repository\UserService $userService
+     */
+    public function __construct(
+        ContentService $contentService,
+        ContentTypeService $contentTypeService,
+        FieldTypeService $fieldTypeService,
+        SearchService $searchService,
+        LocationService $locationService,
+        UserService $userService
+    )
     {
-        return $this->render('DonfeliceCSVImportExportBundle:Default:index.html.twig');
+        $this->contentService = $contentService;
+        $this->contentTypeService = $contentTypeService;
+        $this->fieldTypeService = $fieldTypeService;
+        $this->searchService = $searchService;
+        $this->locationService = $locationService;
+        $this->userService = $userService;
     }
 
-    public function importAction( Request $request, $step, $fileName, $contentType, $locationId )
+    /**
+     * Method for import from CSV files
+     *
+     *
+     */
+    public function importAction( Request $request, $step, $fileName, $contentType, $locationId, $language )
     {
-        //$clientid = $this->getParameter('analytics.clientid');
+        // Parameters from yml
+        $username = $this->getParameter('csvimportexport.username');
+        $password = $this->getParameter('csvimportexport.password');
 
         $name = ""; // file name to be use for reference in step 3
-        //$contentType
+
         $fileContentArray = array();
         $addContentResultArray = array();
         $logArray = array();
 
-        $language = "eng-GB"; // TODO make dynamic with fallback
+        //$language = "eng-GB"; // TODO make dynamic with fallback
 
         $contentTypeGroupId = '1'; //content
 
+        // Set current user
         $repository = $this->getRepository();
-        $locationService = $repository->getLocationService();
-        $contentService = $repository->getContentService();
-        $contentTypeService = $repository->getContentTypeService();
-        $searchService = $repository->getSearchService();
-        $fieldTypeService = $repository->getFieldTypeService();
+        $user = $this->userService->loadUserByCredentials( $username, $password );
+        $repository->setCurrentUser( $user );
 
-        $contentTypeGroup = $contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
-        $contentTypes = $contentTypeService->loadContentTypes( $contentTypeGroup );
+        // Get available languages
+        $availableLanguages = $this->getConfigResolver()->getParameter( 'languages' );
 
-        //var_dump( $contentTypeGroup );
-        //var_dump( $contentTypes );
-
+        $contentTypeGroup = $this->contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
+        $contentTypes = $this->contentTypeService->loadContentTypes( $contentTypeGroup );
 
         // Step 1
         if ( $request->isMethod('POST') && $step == "1" ) {
@@ -71,7 +116,6 @@ class DefaultController extends Controller
             $fileContentArray = $this->file2Array( $filePath );
 
         }
-
 
         // Step 2
         if ( $fileName != "" && $step == 2 ) {
@@ -112,42 +156,21 @@ class DefaultController extends Controller
         if ( $step == "3" ) {
 
             // get all existing object of selected content type
-            //echo $contentType . $language;
             $allExisitingArray = $this->allExisting( $contentType, $language );
             $allExistingObjectStrings = $allExisitingArray[0];
             $allExisitingLocations = $allExisitingArray[1];
             $allExisitingContentIds = $allExisitingArray[2];
             $allExistingObjects = $allExisitingArray[3];
 
-            //var_dump($allExisitingContentIds);
-
             $numberAlreadyInLocation = 0;
             $numberAddedToLocation = 0;
+            $numberNew = 0;
 
-            $userService = $repository->getUserService();
-            $user = $userService->loadUserByCredentials( 'admin', 'publish' ); // TODO Get from yml!
-            $repository->setCurrentUser( $user );
-
-            //$serializer = new Serializer( [new ObjectNormalizer()], [ new CsvEncoder() ] );
-
-            // instantiation, when using it inside the Symfony framework
-            //$serializer = $container->get('serializer');
-
-            // encoding contents in CSV format
-            //$serializer->encode($data, 'csv');
-
-
-            //$this->notificationHandler = new NotificationHandlerInterface;
-
-            $targetContentType = $contentTypeService->loadContentTypeByIdentifier( $contentType );
-
-            //var_dump($targetContentType->fieldDefinitions);
+            $targetContentType = $this->contentTypeService->loadContentTypeByIdentifier( $contentType );
 
             $fieldIdentifiers = array();
 
-
             foreach ( $targetContentType->fieldDefinitions as $fieldDefinition ) {
-                //var_dump($fieldDefinition);
                 $fieldIdentifiers[] = $fieldDefinition->identifier;
             }
 
@@ -190,19 +213,21 @@ class DefaultController extends Controller
 
                             } else {
                                 // Object exists, but not in location. Add to this location
-                                $numberAddedToLocation++;
                                 $addLocationResult = $this->addLocation( $allExistingObjects[ $key ], $locationId, $allExisitingContentIds[ $key ] );
+                                $numberAddedToLocation++;
                             }
                         } else {
                             // If new, simply publish new object
                             $addContentResult = $this->addContent(  $data, $targetContentType, $fieldIdentifiers, $locationId  );
                             $addContentResultArray[] = $addContentResult;
+                            $numberNew++;
                         }
 
                     } else {
                         // No objects of this type exists. Publish new object
                         $addContentResult = $this->addContent(  $data, $targetContentType, $fieldIdentifiers, $locationId  );
                         $addContentResultArray[] = $addContentResult;
+                        $numberNew++;
                     }
 
                 }
@@ -229,9 +254,28 @@ class DefaultController extends Controller
                 'content_types' => $contentTypes,
                 'content_type' => $contentType,
                 'file_name' => $fileName,
-                'content_added' => $addContentResultArray
+                'content_added' => $addContentResultArray,
+                'available_languages' => $availableLanguages
             )
         );
+    }
+
+    /**
+     * Method for export to CSV files
+     *
+     *
+     */
+    public function exportAction( Request $request, $step, $locationId, $language )
+    {
+
+
+
+        return $this->render('DonfeliceCSVImportExportBundle:Default:export.html.twig',
+            array(
+                'step' => $step
+            )
+        );
+
     }
 
 
@@ -240,29 +284,18 @@ class DefaultController extends Controller
 
         $contentTypeGroupId = "1"; // Content
 
-        $repository = $this->getRepository();
-        $locationService = $repository->getLocationService();
-        $contentService = $repository->getContentService();
-        $contentTypeService = $repository->getContentTypeService();
-        //$searchService = $repository->getSearchService();
-        //$fieldTypeService = $repository->getFieldTypeService();
+        $contentTypeGroup = $this->contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
+        $contentTypes = $this->contentTypeService->loadContentTypes( $contentTypeGroup );
 
-        $contentTypeGroup = $contentTypeService->loadContentTypeGroup( $contentTypeGroupId );
-        $contentTypes = $contentTypeService->loadContentTypes( $contentTypeGroup );
-
-        $location = $locationService->loadLocation( $locationId );
-        $locationChildren = $locationService->loadLocationChildren( $location, 0, 1000 );
+        $location = $this->locationService->loadLocation( $locationId );
+        $locationChildren = $this->locationService->loadLocationChildren( $location, 0, 1000 );
 
         // Delete
         if ( $confirm == "yes" ) {
             foreach ( $locationChildren->locations as $item ) {
-
-                //var_dump($item->contentInfo);
-                $contentService->deleteContent( $item->contentInfo );
-
+                $this->contentService->deleteContent( $item->contentInfo );
             }
         }
-
 
         return $this->render('DonfeliceCSVImportExportBundle:Default:clean.html.twig',
             array(
@@ -273,26 +306,6 @@ class DefaultController extends Controller
         );
 
     }
-
-    /*
-    public function utf8_encode_deep(&$input) {
-        if (is_string($input)) {
-            $input = utf8_encode($input);
-        } else if (is_array($input)) {
-            foreach ($input as &$value) {
-                $this->utf8_encode_deep($value);
-            }
-
-            unset($value);
-        } else if (is_object($input)) {
-            $vars = array_keys(get_object_vars($input));
-
-            foreach ($vars as $var) {
-                $this->utf8_encode_deep($input->$var);
-            }
-        }
-    }
-    */
 
 
     public function createFile( $request ) {
@@ -343,13 +356,6 @@ class DefaultController extends Controller
         $allExisitingLocations = array();
         $allExisitingContentIds = array();
 
-        $repository = $this->getRepository();
-        $searchService = $repository->getSearchService();
-        $contentService = $repository->getContentService();
-        $contentTypeService = $repository->getContentTypeService();
-        $locationService = $repository->getLocationService();
-        $fieldTypeService = $repository->getFieldTypeService();
-
         // get all existing object of selected content type
         $query = new Query(
             array(
@@ -363,48 +369,39 @@ class DefaultController extends Controller
             )
         );
 
-        $query->limit = 1000;
+        $query->limit = 1000; // TODO config-wise
 
-        $searchResult = $searchService->findContent( $query );
-        //var_dump($searchResult);
+        $searchResult = $this->searchService->findContent( $query );
 
-        $contentTypeObject = $contentTypeService->loadContentTypeByIdentifier( $contentType );
+        $contentTypeObject = $this->contentTypeService->loadContentTypeByIdentifier( $contentType );
 
         foreach ( $searchResult->searchHits as $searchHit ){
 
             $allExistingObjects[] = $searchHit->valueObject;
             $allExisitingContentIds[] = $searchHit->valueObject->contentInfo->id;
 
-            $allLocations = $locationService->loadLocations( $searchHit->valueObject->contentInfo );
+            $allLocations = $this->locationService->loadLocations( $searchHit->valueObject->contentInfo );
             foreach ( $allLocations as $item ) {
                 $allExisitingLocations[] = $item->parentLocationId;
-
             }
-            //var_dump($allLocations);
 
             $tmp = array();
-            $content = $contentService->loadContent( $searchHit->valueObject->contentInfo->id, array( $language ));
+            $content = $this->contentService->loadContent( $searchHit->valueObject->contentInfo->id, array( $language ));
 
             foreach( $contentTypeObject->fieldDefinitions as $fieldDefinition ){
 
-                $fieldType = $fieldTypeService->getFieldType( $fieldDefinition->fieldTypeIdentifier );
+                $fieldType = $this->fieldTypeService->getFieldType( $fieldDefinition->fieldTypeIdentifier );
                 $field = $content->getFieldValue( $fieldDefinition->identifier, $language );
-                //echo $fieldDefinition->fieldTypeIdentifier;
-                //var_dump($fieldType);
-                //var_dump($field);
 
                 if ( $fieldDefinition->fieldTypeIdentifier == 'ezstring' ){
                     $tmp[] = $field->text;
                 }
                 elseif ( $fieldDefinition->fieldTypeIdentifier == 'ezemail' ){
                     $tmp[] = $field->email;
-                    //var_dump($field);
                 }
 
             }
             $allExistingObjectStrings[] = trim( implode( "--", $tmp ) );
-            //$allExistingObjects[] = $tmp;
-
         }
 
         return array( $allExistingObjectStrings, $allExisitingLocations, $allExisitingContentIds, $allExistingObjects );
@@ -413,16 +410,11 @@ class DefaultController extends Controller
 
     public function addLocation( $contentInfo, $locationId, $contentId ) {
 
-        $repository = $this->getRepository();
-        $contentService = $repository->getContentService();
-        $locationService = $repository->getLocationService();
-
         try
         {
-            $locationCreateStruct = $locationService->newLocationCreateStruct( $locationId );
-            $contentInfo = $contentService->loadContentInfo( $contentId );
-            $newLocation = $locationService->createLocation( $contentInfo, $locationCreateStruct );
-            //print_r( $newLocation );
+            $locationCreateStruct = $this->locationService->newLocationCreateStruct( $locationId );
+            $contentInfo = $this->contentService->loadContentInfo( $contentId );
+            $newLocation = $this->locationService->createLocation( $contentInfo, $locationCreateStruct );
         }
         // Content or location not found
         catch ( \eZ\Publish\API\Repository\Exceptions\NotFoundException $e )
@@ -439,31 +431,42 @@ class DefaultController extends Controller
 
     public function addContent( $data, $targetContentType, $fieldIdentifiers, $locationId ){
 
-        $repository = $this->getRepository();
-        $searchService = $repository->getSearchService();
-        $contentService = $repository->getContentService();
-        $contentTypeService = $repository->getContentTypeService();
-        $locationService = $repository->getLocationService();
-        $fieldTypeService = $repository->getFieldTypeService();
-
-        $userService = $repository->getUserService();
-        $user = $userService->loadUserByCredentials( 'admin', 'publish' ); // TODO Get from yml!
-        $repository->setCurrentUser( $user );
-
-
         try {
 
-            $contentCreateStruct = $contentService->newContentCreateStruct( $targetContentType, 'eng-GB' );
+            $contentCreateStruct = $this->contentService->newContentCreateStruct( $targetContentType, 'eng-GB' );
 
             // Loop row and map columns
             foreach ( $data as $key=>$value ) {
                 $contentCreateStruct->setField( $fieldIdentifiers[ $key ], $value );
             }
 
-            $locationCreateStruct = $locationService->newLocationCreateStruct( $locationId );
+            // Remote id
+            /*
+            if (!empty($contentCreateStruct->remoteId)) {
+                try {
+                    $this->loadContentByRemoteId($contentCreateStruct->remoteId);
+                    throw new InvalidArgumentException(
+                        '$contentCreateStruct',
+                        "Another content with remoteId '{$contentCreateStruct->remoteId}' exists"
+                    );
+                } catch (APINotFoundException $e) {
+                    // Do nothing
+                }
+            } else {
+                //$contentCreateStruct->remoteId = $this->domainMapper->getUniqueHash($contentCreateStruct);
+                $remoteId = md5( trim( implode( "-", $data ) ) );
+                $contentCreateStruct->remoteId = $remoteId;
+                //echo $remoteId . "<br>";
+                //echo $contentCreateStruct->remoteId . "<hr>";
+            }
+            */
 
-            $draft = $contentService->createContent( $contentCreateStruct, array( $locationCreateStruct ) );
-            $content = $contentService->publishVersion( $draft->versionInfo );
+            //echo "<hr>";
+
+            $locationCreateStruct = $this->locationService->newLocationCreateStruct( $locationId );
+
+            $draft = $this->contentService->createContent( $contentCreateStruct, array( $locationCreateStruct ) );
+            $content = $this->contentService->publishVersion( $draft->versionInfo );
 
             // Make string for log
             $id = $content->versionInfo->contentInfo->id;

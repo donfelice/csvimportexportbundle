@@ -26,6 +26,11 @@ if ( step == "3" ) {
 
 }
 
+function enableBtn( btn ) {
+    var this_btn = document.getElementById( btn );
+    this_btn.classList.remove('disabled');
+}
+
 
 (function () {
     const btns = document.querySelectorAll('.btn--udw-browse-csv');
@@ -40,6 +45,9 @@ if ( step == "3" ) {
         //var step = document.getElementById('csv-card').data('step');
         var file_name = $('.card-body').data('file-name');
         var content_type = $('.card-body').data('content-type');
+        var language = document.getElementById( 'select_language' ).value;
+
+        console.log("Chosen language is: " + language);
 
         //window.location.href = window.Routing.generate('_ezpublishLocation', { locationId: items[0].id });
         //var content_type = document.getElementById( 'select_content_type' ).value;

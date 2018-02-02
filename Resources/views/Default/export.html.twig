@@ -1,0 +1,42 @@
+{% extends 'EzPlatformAdminUiBundle::layout.html.twig' %}
+
+{% trans_default_domain 'export' %}
+
+{% block page_title %}
+    {% include '@EzPlatformAdminUi/parts/page_title.html.twig' with {
+        title: 'Export to CSV',
+        iconName: 'circle-caret-down'
+    } %}
+{% endblock %}
+
+{% block left_sidebar %}{% endblock left_sidebar %}
+
+{% block content %}
+<section class="container mt-4 px-5">
+
+        <div class="card border-light my-4">
+            <div class="card-body" id="csv-card" data-step="{{step}}">
+
+                <h3 class="mb-2">Export to CSV</h3>
+
+
+
+            </div>
+        </div>
+
+</section>
+
+{% stylesheets filter='cssrewrite'
+    'bundles/donfelicecsvimportexport/css/csvimportexport.css'
+%}
+    <link rel="stylesheet" href="{{ asset_url }}" />
+{% endstylesheets %}
+
+{% javascripts
+    'https://code.jquery.com/jquery-3.2.1.slim.min.js'
+    'bundles/donfelicecsvimportexport/js/csvimportexport.js'
+%}
+    <script src="{{ asset_url }}"></script>
+{% endjavascripts %}
+
+{% endblock %}
