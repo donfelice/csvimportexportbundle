@@ -4,14 +4,12 @@ namespace Donfelice\CSVImportExportBundle\Controller;
 
 use eZ\Bundle\EzPublishCoreBundle\Controller;
 use eZ\Publish\API\Repository\Repository;
-
 use eZ\Publish\API\Repository\ContentTypeService;
 use eZ\Publish\API\Repository\FieldTypeService;
 use eZ\Publish\API\Repository\SearchService;
 use eZ\Publish\API\Repository\LocationService;
 use eZ\Publish\API\Repository\ContentService;
 use \eZ\Publish\API\Repository\UserService;
-//use eZ\Publish\Core\Helper\TranslationHelper;
 use eZ\Publish\API\Repository\Values\ContentType\ContentType;
 use eZ\Publish\API\Repository\Values\ContentType\ContentTypeGroup;
 use eZ\Publish\API\Repository\Values\Content;
@@ -20,13 +18,20 @@ use eZ\Publish\API\Repository\Values\Content\Query\Criterion\LogicalAnd;
 use eZ\Publish\API\Repository\Values\Content\Query\Criterion\ContentTypeIdentifier;
 use eZ\Publish\API\Repository\Values\Content\Query\Criterion\Visibility;
 
-//use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+
+//use Symfony\Component\HttpFoundation\File\File;
+//use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+//use Symfony\Component\HttpFoundation\BinaryFileResponse;
+//use Symfony\Component\Filesystem\Filesystem;
+
 //use Symfony\Component\Serializer\Serializer;
 //use Symfony\Component\Serializer\Encoder\CsvEncoder;
 //use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+
 
 
 class DefaultController extends Controller
@@ -268,13 +273,88 @@ class DefaultController extends Controller
     public function exportAction( Request $request, $step, $locationId, $language )
     {
 
+        $allContentObjects = array();
+
+        if ( $locationId ) {
+            $location = $this->locationService->loadLocation( $locationId );
+            $allContentObjects = $this->locationService->loadLocationChildren( $location, 0, 1000 );
+        }
+
+        if ( $step == "2" ) {
+
+            // Ready for export, return file
+            $response = new StreamedResponse();
+            $allValues = array();
+
+            foreach( $allContentObjects->locations  as $location ) {
+
+                $values = array();
+
+                $content = $this->contentService->loadContent( $location->contentInfo->id, array( $language ));
+                $contentType = $this->contentTypeService->loadContentType( $content->contentInfo->contentTypeId );
+
+                foreach( $contentType->fieldDefinitions as $fieldDefinition ) {
+                    //echo $fieldDefinition->identifier . ": ";
+                    $fieldType = $this->fieldTypeService->getFieldType( $fieldDefinition->fieldTypeIdentifier );
+                    $field = $content->getField( $fieldDefinition->identifier );
+
+                    // We use the Field's toHash() method to get readable content out of the Field
+                    $valueHash = $fieldType->toHash( $field->value );
+                    $values[] = $valueHash;
+                }
+
+                $allValues[] = $values;
+            }
+
+            $response->setCallback( function() use (&$allValues) {
+                $handle = fopen( 'php://output', 'w+' );
+
+                // Add the header of the CSV file
+                //fputcsv($handle, array('Name', 'Surname', 'Age', 'Sex'),';');
+
+                foreach( $allValues as $row ) {
+
+                    $tmp = array();
+
+                    foreach ( $row as $item ){
+                        //$item = utf_decode($item);
+                        //$item = chr(255).chr(254).iconv( "UTF-8", "UTF-16LE//IGNORE", $item );
+                        //$item = "\xFF\xFE".iconv("UTF-8","UCS-2LE",$item);
+                        //$tmp[] = chr(hexdec('EF')).chr(hexdec('BB')).chr(hexdec('BF')).$item;
+                        $tmp[] = $item;
+                    }
+                    fputcsv(
+                        $handle, // The file pointer
+                        $tmp, // The fields
+                        ';' // The delimiter
+                    );
 
 
-        return $this->render('DonfeliceCSVImportExportBundle:Default:export.html.twig',
-            array(
-                'step' => $step
-            )
-        );
+                }
+
+                fclose( $handle );
+
+            });
+
+            $response->setStatusCode(200);
+            $response->headers->set('Content-Type', 'text/csv; charset=UTF-16LE');
+            $response->headers->set('Content-Disposition', 'attachment; filename="export.csv"');
+
+            return $response;
+
+
+        } else {
+
+            // Return page
+            return $this->render('DonfeliceCSVImportExportBundle:Default:export.html.twig',
+                array(
+                    'step' => $step,
+                    'location_id' => $locationId,
+                    'content_objects' => $allContentObjects
+                )
+            );
+
+        }
 
     }
 
@@ -307,6 +387,10 @@ class DefaultController extends Controller
 
     }
 
+
+    /*
+     * Helper functions TODO move to lib
+     */
 
     public function createFile( $request ) {
 
@@ -346,6 +430,23 @@ class DefaultController extends Controller
 
         return $fileContentArray;
 
+    }
+
+
+    public function utf8_encode_deep( &$input ) {
+      	if ( is_string( $input ) ) {
+      		  $input = utf8_encode( $input );
+      	} else if ( is_array( $input ) ) {
+      		  foreach ( $input as &$value ) {
+      			     $this->utf8_encode_deep( $value );
+      		  }
+      		   unset( $value );
+      	} else if (is_object($input)) {
+      		  $vars = array_keys( get_object_vars( $input ) );
+      		  foreach ( $vars as $var ) {
+      			     $this->utf8_encode_deep( $input->$var );
+      		  }
+      	}
     }
 
 

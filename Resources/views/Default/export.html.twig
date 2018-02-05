@@ -14,15 +14,50 @@
 {% block content %}
 <section class="container mt-4 px-5">
 
-        <div class="card border-light my-4">
-            <div class="card-body" id="csv-card" data-step="{{step}}">
+    <h3>Export to CSV</h3>
 
-                <h3 class="mb-2">Export to CSV</h3>
+    <p>Select location in which objects intended for export are located.</p>
 
+    <button class="btn--udw-browse-csv-export btn btn-lg btn-primary" data-starting-location-id="1">
+        <svg class="ez-icon ez-icon-browse"><use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#browse"></use></svg>
+        Browse
+    </button>
 
+    <br><br>
 
+    {#{dump(content_objects)}#}
+
+    {% if content_objects|length %}
+
+    <div class="ez-table">
+        <div class="table-container">
+            <div class="ez-table-header">
+                <h5>All content objects in location ({{content_objects.totalCount}} in total)</h5>
+                <div class="m-sub-items__actions">
+                    <div class="m-mfu">
+                        <a href="/admin/csv/export/2/{{location_id}}" class="btn btn-primary">
+                            <svg class="ez-icon"><use xlink:href="/bundles/ezplatformadminui/img/ez-icons.svg#circle-caret-down"></use></svg>
+                        </a>
+                    </div>
+                </div>
             </div>
+            <table class="table">
+                <tr>
+                    <th>ContentId</th><th>Content Name</th><th>Published</th>
+                </tr>
+
+                {% for line in content_objects.locations %}
+                <tr>
+                    <td>{{line.contentInfo.id}}</td><td>{{line.contentInfo.name}}</td><td>{{line.contentInfo.published}}</td>
+                </tr>
+                {% endfor %}
+
+            </table>
         </div>
+    </div>
+
+    {% endif %}
+
 
 </section>
 
@@ -35,6 +70,7 @@
 {% javascripts
     'https://code.jquery.com/jquery-3.2.1.slim.min.js'
     'bundles/donfelicecsvimportexport/js/csvimportexport.js'
+    'bundles/donfelicecsvimportexport/js/csv-export-udw.js'
 %}
     <script src="{{ asset_url }}"></script>
 {% endjavascripts %}
