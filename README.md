@@ -40,5 +40,5 @@ assetic:
 Yes.
 
 - As for now only ezstring and ezemail field types are supported. More coming.
-
 - Will not do imports of unlimited objects very well..
+- Exported files don't look to good in Excel on macOS. Appears to be a well known and long story about BOM and UTF and several other monsters..
