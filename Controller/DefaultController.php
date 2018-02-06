@@ -182,14 +182,6 @@ class DefaultController extends Controller
             $baseurl =  $this->get('kernel')->getRootDir() . "/../web/uploads/csv/";
             $csvurl = $baseurl . $fileName;
 
-            //echo $csvurl;
-
-            /*
-            $csvData = $serializer->decode( file_get_contents( $csvurl ), 'csv' );
-            $this->utf8_encode_deep( $csvData );
-            var_dump($csvData);
-            */
-
             if ( $file = fopen( $csvurl , 'r' ) ) {
 
                 // Loop file line by line
