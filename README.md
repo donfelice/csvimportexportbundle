@@ -32,7 +32,7 @@ You need to add it to Assetic configuration in app/config/config.yml, together w
 
 ```
 assetic:
-    bundles: [EzPlatformAdminUiBundle, DonfeliceAnalyticsBundle]
+    bundles: [EzPlatformAdminUiBundle, DonfeliceCSVImportExportBundle]
 ```
 
 ## Limitations
