@@ -19,10 +19,10 @@
     ],
     "require": {
         "php": "^7.1",
-        "ezsystems/ezpublish-kernel": "^7.0@dev",
-        "ezsystems/ezplatform-admin-ui": "^1.0@dev",
-        "ezsystems/ezplatform-admin-ui-modules": "^1.0@dev",
-        "ezsystems/ezplatform-admin-ui-assets": "^1.0@dev"
+        "ezsystems/ezpublish-kernel": "^7.0",
+        "ezsystems/ezplatform-admin-ui": "^1.0",
+        "ezsystems/ezplatform-admin-ui-modules": "^1.0",
+        "ezsystems/ezplatform-admin-ui-assets": "^1.0"
     },
     "autoload": {
         "psr-4": {
